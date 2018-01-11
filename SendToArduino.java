@@ -11,6 +11,8 @@ import com.fazecast.jSerialComm.SerialPort;
 public class SendToArduino {
 	static SerialPort chosenPort;
 	static int x=0;
+	static boolean isConnect;
+	public volatile static boolean exit = false; 
 	public static void main(String[] args) { 
 		//create and configure window
 		JFrame window =  new JFrame();
@@ -26,18 +28,21 @@ public class SendToArduino {
 		
 		JButton connectButton = new JButton("Connect");
 		JButton disconnectButton = new JButton("Disconnect");
-		
+		JButton onButton = new JButton("On");
+		JButton offButton = new JButton("Off");
 		
 		JPanel topPanel=new JPanel();
 		topPanel.add(portlist);
 		
 		
-		JPanel bottomPanel = new JPanel();
-		bottomPanel.add(connectButton,BorderLayout.WEST);
-		bottomPanel.add(disconnectButton, BorderLayout.EAST);
+		JPanel buttonPanel = new JPanel();
+		buttonPanel.add(connectButton,BorderLayout.WEST);
+		buttonPanel.add(disconnectButton, BorderLayout.EAST);
+		buttonPanel.add(onButton,BorderLayout.SOUTH);
+		buttonPanel.add(offButton,BorderLayout.NORTH);
 		
 		window.add(topPanel,BorderLayout.NORTH);
-		window.add(bottomPanel,BorderLayout.SOUTH);
+		window.add(buttonPanel,BorderLayout.SOUTH);
 		
 		//populate the drop-down box
 		SerialPort[] portNames = SerialPort.getCommPorts();
@@ -46,14 +51,27 @@ public class SendToArduino {
 	
 			//configure the connect button and use another thread to listen for data
 			connectButton.addActionListener(new ActionListener() {
-				@Override public void actionPerformed(ActionEvent argo) {
+				@Override 
+				public void actionPerformed(ActionEvent argo) {
 					if(connectButton.getText().equals("Connect")) {
 						//attempt to connect button and use another thread to listen to data
 						chosenPort = SerialPort.getCommPort(portlist.getSelectedItem().toString());
 						chosenPort.setComPortTimeouts(SerialPort.TIMEOUT_SCANNER,0,0);
-						boolean ifConnect=chosenPort.openPort();
-						System.out.println(ifConnect);
-						if(ifConnect) {
+						//boolean ifConnect=chosenPort.openPort();
+						isConnect = chosenPort.openPort();
+						System.out.println(isConnect);
+			
+						//chosenPort.closePort();	
+								
+					}
+				}
+			});
+			
+			onButton.addActionListener(new ActionListener() {
+				@Override 
+				public void actionPerformed(ActionEvent argo) {
+					if(onButton.getText().equals("On")) {
+            if(isConnect) {
 							
 							portlist.setEnabled(false);
 						
@@ -68,7 +86,7 @@ public class SendToArduino {
 									}
 									PrintWriter output = new PrintWriter(chosenPort.getOutputStream());
 									
-									while(true) {
+									while(!exit) {
 									output.print("on");	
 								    output.flush();
 									try {
@@ -81,17 +99,101 @@ public class SendToArduino {
 								}
 							};
 							thread.start();
+							try {
+								Thread.sleep(2000);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							} 
+							exit = true; 
+							   try {
+								thread.join();
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							} 
+							   System.out.println("stop thread"); 
+							   exit = false;
 							
 						}
 						
-						//chosenPort.closePort();	
+					}
+				}
+			}
+			);
+			
+			disconnectButton.addActionListener(new ActionListener() {
+				@Override 
+				public void actionPerformed(ActionEvent argo) {
+					if(disconnectButton.getText().equals("Disconnect")) {
+						if(isConnect) {
+							chosenPort.closePort();	
+						}
+	
 								
 					}
 				}
 			});
 			
-	
 			
+			offButton.addActionListener(new ActionListener() {
+				@Override 
+				public void actionPerformed(ActionEvent argo) {
+					
+					if(offButton.getText().equals("Off")) {
+                      if(isConnect) {
+							
+							portlist.setEnabled(false);
+							System.out.println("off");
+						
+							//create a new thread for sending data to arduino
+							Thread thread = new Thread() {
+								@Override public void run() {
+									//wait after connecting
+									try {
+										Thread.sleep(400);
+									}catch(Exception e) {
+										
+									}
+									PrintWriter output = new PrintWriter(chosenPort.getOutputStream());
+									
+									while(!exit) {
+									output.print("off");	
+								    output.flush();
+									try {
+										Thread.sleep(4000);
+									}catch(Exception e) {
+										
+									}
+									}
+									
+								}
+							};
+							thread.start();
+							try {
+								Thread.sleep(2000);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							} // 主线程延迟5秒 
+							exit = true; 
+							   try {
+								thread.join();
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							} 
+							   System.out.println("stop thread"); 
+							   exit = false;
+						
+							
+						}
+						
+					}
+				}
+			});
+
+					
 			//show the window
 			window.setVisible(true);
 		}
